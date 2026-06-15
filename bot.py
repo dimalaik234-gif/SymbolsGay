@@ -144,12 +144,14 @@ async def cmd_wiki(message: types.Message, command: CommandObject):
         # Берем первые 3 предложения из статьи
         result = wikipedia.summary(command.args, sentences=3)
         await msg.edit_text(f"📖 <b>{command.args.capitalize()}</b>\n\n{result}", parse_mode="HTML")
-    except wikipedia.exceptions.DisambiguationError:
-        await msg.edit_text("🤷‍♂️ Запрос слишком общий, уточни его (например, не 'Яблоко', а 'Яблоко (плод)').")
+    except wikipedia.exceptions.DisambiguationError as e:
+        await msg.edit_text(f"🤷‍♂️ Запрос слишком общий. Вот возможные варианты:\n{e.options[:5]}")
     except wikipedia.exceptions.PageError:
         await msg.edit_text("😔 По твоему запросу ничего не найдено в Википедии.")
-    except Exception:
-        await msg.edit_text("❌ Ошибка при поиске.")
+    except Exception as e:
+        # Теперь бот покажет системный текст ошибки, и мы поймем, в чем дело
+        await msg.edit_text(f"❌ Ошибка при поиске: {e}")
+
 
 @dp.message(Command("coin"))
 async def cmd_coin(message: types.Message):
