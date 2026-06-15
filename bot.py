@@ -133,7 +133,6 @@ async def cmd_qr(message: types.Message, command: CommandObject):
         await msg.delete()
     except Exception:
         await msg.edit_text("❌ Ошибка создания QR-кода.")
-
 @dp.message(Command("wiki"))
 async def cmd_wiki(message: types.Message, command: CommandObject):
     if not command.args:
@@ -141,17 +140,47 @@ async def cmd_wiki(message: types.Message, command: CommandObject):
         return
     
     msg = await message.answer("🔍 Ищу в Википедии...")
+    
+    # Прямой запрос к API Википедии
+    url = "https://ru.wikipedia.org/w/api.php"
+    params = {
+        "action": "query",
+        "format": "json",
+        "prop": "extracts",
+        "exsentences": "3",  # Берем 3 предложения
+        "exlimit": "1",
+        "explaintext": "1",
+        "titles": command.args
+    }
+    # Представляемся Википедии, чтобы она нас не заблокировала
+    headers = {
+        "User-Agent": "MyTelegramBot/1.0 (https://t.me/guga23_bot)"
+    }
+    
     try:
-        # Берем первые 3 предложения из статьи
-        result = wikipedia.summary(command.args, sentences=3)
-        await msg.edit_text(f"📖 <b>{command.args.capitalize()}</b>\n\n{result}", parse_mode="HTML")
-    except wikipedia.exceptions.DisambiguationError as e:
-        await msg.edit_text(f"🤷‍♂️ Запрос слишком общий. Вот возможные варианты:\n{e.options[:5]}")
-    except wikipedia.exceptions.PageError:
-        await msg.edit_text("😔 По твоему запросу ничего не найдено в Википедии.")
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.get(url, params=params) as response:
+                data = await response.json()
+                
+        pages = data.get("query", {}).get("pages", {})
+        for page_id, page_data in pages.items():
+            if page_id == "-1":
+                await msg.edit_text("😔 По твоему запросу ничего не найдено в Википедии.")
+                return
+            
+            extract = page_data.get("extract", "").strip()
+            title = page_data.get("title", "")
+            
+            if not extract:
+                await msg.edit_text(f"😔 Статья <b>{title}</b> найдена, но текста для вывода нет.", parse_mode="HTML")
+                return
+                
+            await msg.edit_text(f"📖 <b>{title}</b>\n\n{extract}", parse_mode="HTML")
+            return
+
     except Exception as e:
-        # Теперь бот покажет системный текст ошибки, и мы поймем, в чем дело
         await msg.edit_text(f"❌ Ошибка при поиске: {e}")
+
 
 
 @dp.message(Command("coin"))
